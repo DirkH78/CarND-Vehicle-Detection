@@ -1,6 +1,7 @@
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 import numpy as np
+import moviepy.editor as mpy
 import glob
 import cv2
 from skimage.feature import hog
@@ -8,6 +9,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.svm import LinearSVC
 from sklearn.cross_validation import train_test_split
 from scipy.ndimage.measurements import label
+#from sklearn.model_selection import GridSearchCV
 
 ###Tweak these parameters and see how the results change.
 color_space = 'RGB' # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
@@ -17,12 +19,15 @@ cell_per_block = 2 # HOG cells per block
 hog_channel = 2 # Can be 0, 1, 2 or "ALL"
 spatial_size = (16, 16) # Spatial binning dimensions
 hist_bins = 16    # Number of histogram bins
-spatial_feat = True # Spatial features on or off
-hist_feat = True # Histogram features on or off
-hog_feat = True # HOG features on or off
-y_start_stop = [380, None] # Min and max in y to search in slide_window()
+#spatial_feat = True # Spatial features on or off
+#hist_feat = True # Histogram features on or off
+#hog_feat = True # HOG features on or off
+y_start_stop = [350, None] # Min and max in y to search in slide_window()
 scale = 1.5
 hist_range = (0, 1)
+xy_window = (54, 54)
+xy_overlap = (0.5, 0.5)
+threshhold = 1.5
 
 #Helper Functions
 def ImportPicturesFromFolder(folder, color_space='RGB', show=False):
@@ -203,6 +208,8 @@ def slide_window(img, x_start_stop=[None, None], y_start_stop=[None, None],
 
 # Define a function you will pass an image
 # and the list of windows to be searched (output of slide_windows())
+    
+global i
 def search_windows(img, windows, clf, scaler, color_space, spatial_size, hist_bins, hist_range, orient, pix_per_cell, cell_per_block, hog_channel):
  
     #1) Create an empty list to receive positive detection windows
@@ -256,6 +263,31 @@ def draw_labeled_bboxes(img, labels):
     # Return the image
     return img
 
+def process_image(img):
+    
+    windows = slide_window(img, x_start_stop=[None, None], y_start_stop=y_start_stop, xy_window=xy_window, xy_overlap=xy_overlap)
+    hot_windows = search_windows(img, windows, svc, X_scaler, color_space, spatial_size, hist_bins, hist_range, orient, pix_per_cell, cell_per_block, hog_channel) 
+    #boxImg = draw_boxes(testimglist[i], hot_windows, color=(0, 0, 255), thick=6)
+    #plt.imshow(boxImg)
+    #plt.show()
+    heat = np.zeros_like(img[:,:,0]).astype(np.float)
+    # Add heat to each box in box list
+    heat = add_heat(heat,hot_windows)
+         
+    # Apply threshold to help remove false positives
+    heat = apply_threshold(heat,threshhold)
+     
+    # Visualize the heatmap when displaying   
+    heatmap = np.clip(heat, 0, 255)
+     
+    # Find final boxes from heatmap using label function
+    labels = label(heatmap)
+    img = draw_labeled_bboxes(np.copy(img), labels)
+    
+    plt.imshow(img)
+    plt.show()
+    return img
+
 testimglist=ImportPicturesFromFolder("./test_images/*jpg", color_space=color_space, show=False)
 cars=ImportPicturesFromFolder("./training_images/vehicles/**/*png", color_space=color_space, show=False)
 notcars=ImportPicturesFromFolder("./training_images/non-vehicles/**/*png", color_space=color_space, show=False)
@@ -273,7 +305,11 @@ carfeatures = extract_features(cars, spatial_size, hist_bins, (0, 1), orient, pi
 notcarfeatures = extract_features(notcars, spatial_size, hist_bins, (0, 1), orient, pix_per_cell, cell_per_block, hog_channel, vis=False, feature_vec=False)
 X_scaler, X_train, X_test, y_train, y_test=createScaledTestTrainData(carfeatures, notcarfeatures)
 # Use a linear SVC (support vector classifier)
+#parameters = {'C':[1, 3, 6, 10]}
+#vc = LinearSVC()
+#svc = GridSearchCV(vc, parameters)
 svc = LinearSVC()
+
 # Train the SVC
 svc.fit(X_train, y_train)
 print('Test Accuracy of SVC = ', svc.score(X_test, y_test))
@@ -281,7 +317,7 @@ print('Test Accuracy of SVC = ', svc.score(X_test, y_test))
 #print('For labels: ', y_test[0:round(len(y_test)*0.1)])
 
 for i in range(len(testimglist)):
-    windows = slide_window(testimglist[i], x_start_stop=[None, None], y_start_stop=y_start_stop, xy_window=(96, 96), xy_overlap=(0.5, 0.5))
+    windows = slide_window(testimglist[i], x_start_stop=[None, None], y_start_stop=y_start_stop, xy_window=xy_window, xy_overlap=xy_overlap)
     hot_windows = search_windows(testimglist[i], windows, svc, X_scaler, color_space, spatial_size, hist_bins, hist_range, orient, pix_per_cell, cell_per_block, hog_channel) 
     #boxImg = draw_boxes(testimglist[i], hot_windows, color=(0, 0, 255), thick=6)
     #plt.imshow(boxImg)
@@ -291,20 +327,26 @@ for i in range(len(testimglist)):
     heat = add_heat(heat,hot_windows)
          
     # Apply threshold to help remove false positives
-    heat = apply_threshold(heat,1)
+    heat = apply_threshold(heat,threshhold)
      
     # Visualize the heatmap when displaying   
     heatmap = np.clip(heat, 0, 255)
      
     # Find final boxes from heatmap using label function
     labels = label(heatmap)
-    draw_img = draw_labeled_bboxes(np.copy(testimglist[i]), labels)
+    img = draw_labeled_bboxes(np.copy(testimglist[i]), labels)
+    mpimg.imsave('output_images/image_'+str(i)+'.png',img)
     
     fig = plt.figure()
     plt.subplot(121)
-    plt.imshow(draw_img)
+    plt.imshow(img)
     plt.title('Car Positions')
     plt.subplot(122)
     plt.imshow(heatmap, cmap='hot')
     plt.title('Heat Map')
     fig.tight_layout()
+
+##Process video file
+prVid = mpy.VideoFileClip("project_video.mp4")
+processedPrVid = prVid.fl_image(process_image)
+processedPrVid.write_videofile("project_video_output.mp4", audio=False)
