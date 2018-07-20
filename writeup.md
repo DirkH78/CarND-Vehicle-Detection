@@ -16,15 +16,15 @@ The goals / steps of this project are the following:
 
 [//]: # (Image References)
 [image1]: ./output_images/image_0.png
-[image2]: ./output_images/image_1.jpg
-[image3]: ./output_images/image_2.jpg
-[image4]: ./output_images/image_3.jpg
+[image2]: ./output_images/image_1.png
+[image3]: ./output_images/image_2.png
+[image4]: ./output_images/image_3.png
 [image5]: ./output_images/image_4.png
 [image6]: ./output_images/image_5.png
-[image7]: ./training_images/vehicles/GTI_Far/image0000.png
-[image8]: ./training_images/non-vehicles/GTI/image73.png
+[image7]: ./examples/image0000.png
+[image8]: ./examples/image73.png
 [image9]: ./examples/HOG.png
-[image10]: ./examples/HeatMaps.png
+[image10]: ./examples/HeatMaps.PNG
 [video1]: ./project_video_output.mp4
 
 ## [Rubric](https://review.udacity.com/#!/rubrics/513/view) Points
